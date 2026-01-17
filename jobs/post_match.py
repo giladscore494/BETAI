@@ -73,7 +73,7 @@ def main():
                 supabase.update_match_status(match["id"], "finished")
                 processed += 1
             except (GroundingError, requests.RequestException, ValueError) as exc:
-                failure_notes.append(f"משחק {match.get('home_team')} - {match.get('away_team')}: {exc}")
+                failure_notes.append(f"משחק {match.get('home_team')} - {match.get('away_team')}: שגיאה ({exc})")
                 status = "partial_fail"
                 continue
     except Exception as exc:  # noqa: BLE001

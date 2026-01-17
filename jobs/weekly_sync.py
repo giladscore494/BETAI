@@ -78,14 +78,16 @@ def main():
                 fixtures, duration_ms = gemini.fetch_fixtures(code, name)
                 duration_notes.append(f"{code}:{duration_ms}ms")
             except (GroundingError, requests.RequestException, ValueError) as exc:
-                failure_notes.append(f"ליגה {code}: {exc}")
+                failure_notes.append(f"ליגה {code}: שגיאה באיסוף משחקים ({exc})")
                 status = "partial_fail"
                 continue
             for fx in fixtures:
                 try:
                     match_row = build_match_row(fx)
                 except (KeyError, TypeError, ValueError) as exc:
-                    failure_notes.append(f"שגיאת המרה במשחק {fx.get('home_team','?')}-{fx.get('away_team','?')}: {exc}")
+                    failure_notes.append(
+                        f"שגיאת המרה במשחק {fx.get('home_team','?')}-{fx.get('away_team','?')}: ({exc})"
+                    )
                     status = "partial_fail"
                     continue
                 window_end = datetime.now(timezone.utc) + timedelta(days=7)
