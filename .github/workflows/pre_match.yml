@@ -8,6 +8,7 @@ on:
 jobs:
   pre-match:
     runs-on: ubuntu-latest
+    environment: BETAI
     permissions:
       contents: read
     steps:
@@ -18,9 +19,21 @@ jobs:
           python-version: "3.x"
       - name: Install dependencies
         run: pip install requests
+      - name: Debug secrets presence (boolean only)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          APP_TZ: ${{ secrets.APP_TZ }}
+        run: |
+          [ -n "${GEMINI_API_KEY:-}" ] && echo "GEMINI_API_KEY=true" || echo "GEMINI_API_KEY=false"
+          [ -n "${SUPABASE_URL:-}" ] && echo "SUPABASE_URL=true" || echo "SUPABASE_URL=false"
+          [ -n "${SUPABASE_SERVICE_ROLE:-}" ] && echo "SUPABASE_SERVICE_ROLE=true" || echo "SUPABASE_SERVICE_ROLE=false"
+          [ -n "${APP_TZ:-}" ] && echo "APP_TZ=true" || echo "APP_TZ=false"
       - name: Run pre-match job
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          APP_TZ: ${{ secrets.APP_TZ }}
         run: python jobs/pre_match.py

@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from gemini_client import GeminiClient
+from gemini_client import GeminiClient, GroundingError
 from supabase_client import SupabaseClient
 
 LEAGUES = {
@@ -14,6 +14,9 @@ LEAGUES = {
     "Bundesliga": "Bundesliga",
     "Ligue1": "Ligue 1",
 }
+
+TZ_NAME = os.getenv("APP_TZ", "Asia/Jerusalem")
+TZ = ZoneInfo(TZ_NAME)
 
 
 FIXTURE_PROMPT = """
@@ -38,17 +41,7 @@ def parse_kickoff(ts: str) -> datetime:
 
 
 def convert_to_israel(dt: datetime) -> datetime:
-    return dt.astimezone(ZoneInfo("Asia/Jerusalem"))
-
-
-def fetch_fixtures(client: GeminiClient, league_code: str, league_name: str):
-    payload, _ = client._retry_parse(
-        "בצע חיפוש אינטרנטי והחזר JSON של משחקי שבוע הקרוב בלבד.",
-        FIXTURE_PROMPT.format(league_name=league_name, league_code=league_code),
-    )
-    if not isinstance(payload, list):
-        raise ValueError("Fixture response must be list")
-    return payload
+    return dt.astimezone(TZ)
 
 
 def build_match_row(raw):
@@ -74,12 +67,29 @@ def main():
     supabase = SupabaseClient()
     run_id = supabase.log_run("weekly_sync")
     processed = 0
+    status = "ok"
+    failure_notes = []
+    duration_notes = []
+    error_msg = None
     try:
         all_matches = []
         for code, name in LEAGUES.items():
-            fixtures = fetch_fixtures(gemini, code, name)
+            try:
+                fixtures, duration_ms = gemini.fetch_fixtures(code, name)
+                duration_notes.append(f"{code}:{duration_ms}ms")
+            except (GroundingError, requests.RequestException, ValueError) as exc:
+                failure_notes.append(f"ליגה {code}: שגיאה באיסוף משחקים ({exc})")
+                status = "partial_fail"
+                continue
             for fx in fixtures:
-                match_row = build_match_row(fx)
+                try:
+                    match_row = build_match_row(fx)
+                except (KeyError, TypeError, ValueError) as exc:
+                    failure_notes.append(
+                        f"שגיאת המרה במשחק {fx.get('home_team','?')}-{fx.get('away_team','?')}: ({exc})"
+                    )
+                    status = "partial_fail"
+                    continue
                 window_end = datetime.now(timezone.utc) + timedelta(days=7)
                 if match_row["_kickoff_dt"] > window_end:
                     continue
@@ -88,10 +98,13 @@ def main():
         if all_matches:
             supabase.upsert_matches(all_matches)
             processed = len(all_matches)
-        supabase.finish_run(run_id, "ok", processed)
-    except (requests.RequestException, ValueError) as exc:
-        supabase.finish_run(run_id, "error", processed, error=str(exc))
-        raise
+    except Exception as exc:  # noqa: BLE001
+        status = "error"
+        error_msg = str(exc)
+    finally:
+        all_notes = failure_notes + duration_notes
+        notes_text = "; ".join(all_notes) if all_notes else None
+        supabase.finish_run(run_id, status, processed, error=error_msg, notes=notes_text)
 
 
 if __name__ == "__main__":

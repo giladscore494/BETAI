@@ -7,13 +7,12 @@
    - צור פרויקט חדש.
    - הרץ את `db/schema.sql` בקונסולת ה-SQL.
 2. **סודות GitHub Actions**
-- `GEMINI_API_KEY`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE` (שרת בלבד)
-- (לאתר) `SUPABASE_ANON_KEY` לקריאה בלבד.
+   - שמור ב-Environment בשם **BETAI** כדי שזמינים לריצות: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE`, אופציונלי `APP_TZ`.
+   - (לאתר) `SUPABASE_ANON_KEY` לקריאה בלבד.
 3. **הפעלת אוטומציה**
    - ודא ש-GitHub Actions פעיל.
    - קבצי cron קיימים: `weekly_sync.yml`, `pre_match.yml`, `post_match.yml`.
+   - ניתן להפעיל ידנית עם workflow_dispatch מתוך לשונית Actions (בחר את ה-workflow ולחץ Run workflow).
 4. **אתר**
    - ערוך את `web/index.html` והחלף את `<SUPABASE_URL>` ו-`<SUPABASE_ANON_KEY>` בערכים שלך.
    - פרוס כ-Static Site (GitHub Pages או Supabase Storage).
@@ -31,6 +30,7 @@ pip install requests
 export GEMINI_API_KEY=...
 export SUPABASE_URL=...
 export SUPABASE_SERVICE_ROLE=...
+# אופציונלי: export APP_TZ="Asia/Jerusalem"
 python jobs/weekly_sync.py
 python jobs/pre_match.py
 python jobs/post_match.py
@@ -45,9 +45,10 @@ python jobs/post_match.py
 </script>
 ```
 
-## הערות אבטחה
+## הערות אבטחה וקרקוע
 - מפתח השירות של Supabase (SERVICE ROLE) משמש רק בסקריפטים/CI, לא בדפדפן.
 - אתר ה-UI משתמש במפתח `SUPABASE_ANON_KEY` לקריאה בלבד.
+- לוגי הריצה מציגים רק בוליאני האם סודות הוגדרו. מקורות/grounding נאכפים אוטומטית; לבדיקה ניתן לעיין ב-runs.notes או בלוגים ולוודא שאין הודעות חסר קרקוע.
 
 ## בדיקות
 אין סט בדיקות מובנה במאגר. הרצה ידנית של הסקריפטים היא הדרך המהירה לאימות.
