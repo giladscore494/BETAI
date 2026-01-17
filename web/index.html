@@ -12,9 +12,11 @@
     .badge-ok { color: #0a0; font-weight: bold; }
     .badge-bad { color: #a00; font-weight: bold; }
     .sources a { margin-left: 6px; }
+    .error-banner { display: none; background: #ffe8e6; color: #a00; border: 1px solid #a00; padding: 10px; margin-bottom: 12px; font-weight: bold; }
   </style>
-</head>
+  </head>
 <body>
+  <div id="error-banner" class="error-banner"></div>
   <h1>משחקים השבוע</h1>
   <table id="matches">
     <thead>
@@ -29,87 +31,105 @@
   <h2>סטטיסטיקה שבועית</h2>
   <div id="stats">טוען...</div>
 
+  <script src="/config.js" onerror="window.__CONFIG_LOAD_ERROR=true;"></script>
   <script>
+    const errorBanner = document.getElementById("error-banner");
+    function showError(message) {
+      errorBanner.innerText = message;
+      errorBanner.style.display = "block";
+    }
+
     const SUPABASE_URL = window.SUPABASE_URL;
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
 
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      document.getElementById("stats").innerText = "יש להגדיר SUPABASE_URL ו-SUPABASE_ANON_KEY כמשתני חלון לפני טעינת הדף.";
-      throw new Error("Supabase credentials missing");
-    }
-
-    async function fetchSupabase(path, params = "") {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}${params}`, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+    if (window.__CONFIG_LOAD_ERROR || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      showError("חסרים SUPABASE_URL / SUPABASE_ANON_KEY ב-Cloudflare Pages Variables");
+      document.getElementById("stats").innerText = "הנתונים לא נטענו בגלל חסרון ההגדרות.";
+    } else {
+      async function fetchSupabase(path, params = "") {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}${params}`, {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (res.status === 401 || res.status === 403) {
+          showError("קוד 401/403 מסופאבייס. ודאו הרשאות SELECT (RLS) ל-anon על הטבלאות matches / predictions / results.");
+          throw new Error("Supabase unauthorized");
         }
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    }
-
-    function formatPrediction(pred) {
-      if (!pred) return "—";
-      const winner = pred.predicted_winner || "";
-      const pct = Math.round((winner === "HOME" ? pred.prob_home : winner === "AWAY" ? pred.prob_away : pred.prob_draw) * 100);
-      return `${winner} (${pct}%)`;
-    }
-
-    async function loadMatches() {
-      const today = new Date();
-      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const params = `?select=*,predictions(*),results(*)&kickoff_utc=gte.${today.toISOString()}&kickoff_utc=lte.${nextWeek.toISOString()}&order=kickoff_utc.asc`;
-      const rows = await fetchSupabase("matches", params);
-      const tbody = document.querySelector("#matches tbody");
-      tbody.innerHTML = "";
-      rows.forEach(row => {
-        const pred = row.predictions?.[0];
-        const res = row.results?.[0];
-        const tr = document.createElement("tr");
-        const date = new Date(row.kickoff_israel);
-        const predLatency = pred?.duration_ms || "";
-        const correct = res ? (res.correct ? '<span class="badge-ok">כן</span>' : '<span class="badge-bad">לא</span>') : "—";
-        const sources = pred?.sources || res?.sources;
-        const links = [];
-        if (sources) {
-          Object.values(sources).forEach(arr => {
-            (arr || []).forEach(url => {
-              links.push(`<a href="${url}" target="_blank">קישור</a>`);
-            });
-          });
-        }
-        tr.innerHTML = `
-          <td>${row.league}</td>
-          <td>${date.toLocaleDateString("he-IL")}</td>
-          <td>${date.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"})}</td>
-          <td>${row.home_team}</td>
-          <td>${row.away_team}</td>
-          <td>${row.status}</td>
-          <td>${formatPrediction(pred)}</td>
-          <td>${res ? res.final_home_goals + " - " + res.final_away_goals : "—"}</td>
-          <td>${correct}</td>
-          <td>${predLatency}</td>
-          <td class="sources">${links.join(" ")}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    async function loadStats() {
-      const res = await fetchSupabase("results", "?select=match_id,result_text,correct,verified_at&order=verified_at.desc&limit=50");
-      if (!res.length) {
-        document.getElementById("stats").innerText = "אין נתונים.";
-        return;
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
       }
-      let correct = 0;
-      res.forEach(r => { if (r.correct) correct += 1; });
-      const accuracy = (correct / res.length * 100).toFixed(1);
-      document.getElementById("stats").innerText = `דיוק נוכחי: ${accuracy}% (${correct}/${res.length})`;
-    }
 
-    loadMatches().catch(err => console.error(err));
-    loadStats().catch(err => console.error(err));
+      function formatPrediction(pred) {
+        if (!pred) return "—";
+        const winner = pred.predicted_winner || "";
+        const probMap = {
+          HOME: pred.prob_home,
+          AWAY: pred.prob_away,
+          DRAW: pred.prob_draw,
+          DEFAULT: pred.prob_draw ?? 0
+        };
+        const probValue = probMap[winner] ?? probMap.DEFAULT ?? 0;
+        const pct = Math.round(probValue * 100);
+        return `${winner} (${pct}%)`;
+      }
+
+      async function loadMatches() {
+        const today = new Date();
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const params = `?select=*,predictions(*),results(*)&kickoff_utc=gte.${today.toISOString()}&kickoff_utc=lte.${nextWeek.toISOString()}&order=kickoff_utc.asc`;
+        const rows = await fetchSupabase("matches", params);
+        const tbody = document.querySelector("#matches tbody");
+        tbody.innerHTML = "";
+        rows.forEach(row => {
+          const pred = row.predictions?.[0];
+          const res = row.results?.[0];
+          const tr = document.createElement("tr");
+          const date = new Date(row.kickoff_israel);
+          const predLatency = pred?.duration_ms || "";
+          const correct = res ? (res.correct ? '<span class="badge-ok">כן</span>' : '<span class="badge-bad">לא</span>') : "—";
+          const sources = pred?.sources || res?.sources;
+          const links = [];
+          if (sources) {
+            Object.values(sources).forEach(arr => {
+              (arr || []).forEach(url => {
+                links.push(`<a href="${url}" target="_blank">קישור</a>`);
+              });
+            });
+          }
+          tr.innerHTML = `
+            <td>${row.league}</td>
+            <td>${date.toLocaleDateString("he-IL")}</td>
+            <td>${date.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"})}</td>
+            <td>${row.home_team}</td>
+            <td>${row.away_team}</td>
+            <td>${row.status}</td>
+            <td>${formatPrediction(pred)}</td>
+            <td>${res ? res.final_home_goals + " - " + res.final_away_goals : "—"}</td>
+            <td>${correct}</td>
+            <td>${predLatency}</td>
+            <td class="sources">${links.join(" ")}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      async function loadStats() {
+        const res = await fetchSupabase("results", "?select=match_id,result_text,correct,verified_at&order=verified_at.desc&limit=50");
+        if (!res.length) {
+          document.getElementById("stats").innerText = "אין נתונים.";
+          return;
+        }
+        let correct = 0;
+        res.forEach(r => { if (r.correct) correct += 1; });
+        const accuracy = (correct / res.length * 100).toFixed(1);
+        document.getElementById("stats").innerText = `דיוק נוכחי: ${accuracy}% (${correct}/${res.length})`;
+      }
+
+      loadMatches().catch(err => console.error(err));
+      loadStats().catch(err => console.error(err));
+    }
   </script>
 </body>
 </html>
