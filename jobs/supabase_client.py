@@ -29,10 +29,17 @@ class SupabaseClient:
         headers = dict(self.headers)
         if extra_headers:
             headers.update(extra_headers)
-        resp = self.session.request(method, url, headers=headers, params=params, json=json_body, timeout=60)
+
+        resp = self.session.request(
+            method, url, headers=headers, params=params, json=json_body, timeout=60
+        )
+
         if not resp.ok:
+            # חשוב: לא להדפיס headers/מפתחות. רק status + body.
             print(f"Supabase error {resp.status_code}: {resp.text}")
             resp.raise_for_status()
+
+        # PostgREST לפעמים מחזיר גוף ריק גם בהצלחה
         if resp.text:
             return resp.json()
         return None
@@ -40,14 +47,26 @@ class SupabaseClient:
     def log_run(self, job_name: str) -> str:
         start = time.strftime("%Y-%m-%dT%H:%M:%SZ")
         data = {"job_name": job_name, "started_at": start, "status": "running"}
-        res = self._rest("runs", json_body=data)
-        return res[0]["id"]
+
+        # חשוב: בלי זה Supabase יחזיר body ריק, ואז res יהיה None
+        res = self._rest(
+            "runs",
+            json_body=data,
+            method="post",
+            extra_headers={"Prefer": "return=representation"},
+        )
+
+        if not res or not isinstance(res, list) or "id" not in res[0]:
+            raise RuntimeError(f"Failed to insert run row. Response: {res}")
+
+        return str(res[0]["id"])
 
     def finish_run(self, run_id: str, status: str, notes: Optional[str] = None):
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ")
         payload = {"finished_at": finished_at, "status": status}
         if notes is not None:
             payload["notes"] = notes
+
         self._rest(
             "runs",
             params={"id": f"eq.{run_id}"},
