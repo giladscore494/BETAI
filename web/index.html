@@ -69,7 +69,7 @@
           AWAY: pred.prob_away,
           DRAW: pred.prob_draw
         };
-        const pct = Math.round((probMap[winner] ?? pred.prob_draw) * 100);
+        const pct = Math.round(((probMap[winner] ?? pred.prob_draw ?? 0) || 0) * 100);
         return `${winner} (${pct}%)`;
       }
 
