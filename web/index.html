@@ -64,11 +64,13 @@
       function formatPrediction(pred) {
         if (!pred) return "—";
         const winner = pred.predicted_winner || "";
-        let probValue;
-        if (winner === "HOME") probValue = pred.prob_home ?? 0;
-        else if (winner === "AWAY") probValue = pred.prob_away ?? 0;
-        else if (winner === "DRAW") probValue = pred.prob_draw ?? 0;
-        else probValue = 0;
+        const probMap = {
+          HOME: pred.prob_home,
+          AWAY: pred.prob_away,
+          DRAW: pred.prob_draw,
+          DEFAULT: pred.prob_draw ?? 0
+        };
+        const probValue = probMap[winner] ?? probMap.DEFAULT ?? 0;
         const pct = Math.round(probValue * 100);
         return `${winner} (${pct}%)`;
       }

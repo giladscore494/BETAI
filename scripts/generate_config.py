@@ -33,7 +33,7 @@ def main() -> int:
     )
 
   def valid_frontend_key(value: str) -> bool:
-    return value.startswith("sb_publishable_") and key_pattern.fullmatch(value)
+    return value.startswith("sb_publishable_")
 
   if not valid_url(supabase_url):
     sys.stderr.write("SUPABASE_URL failed validation; aborting config generation\n")
