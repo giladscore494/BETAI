@@ -31,7 +31,7 @@ def main() -> int:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
   def valid_anon_key(value: str) -> bool:
-    return value.startswith("sb_publishable_") and safe_pattern.fullmatch(value)
+    return (value.startswith("sb_publishable_") or value.startswith("ey")) and safe_pattern.fullmatch(value)
 
   if not valid_url(supabase_url):
     sys.stderr.write("SUPABASE_URL failed validation; aborting config generation\n")
