@@ -41,12 +41,20 @@ class SupabaseClient:
         res = self._rest("runs", json_body=data)
         return res[0]["id"]
 
-    def finish_run(self, run_id: str, status: str, processed: int = 0, error: Optional[str] = None):
+    def finish_run(
+        self, run_id: str, status: str, processed: int = 0, error: Optional[str] = None, notes: Optional[str] = None
+    ):
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ")
         self._rest(
             "runs",
             params={"id": f"eq.{run_id}"},
-            json_body={"finished_at": finished_at, "status": status, "processed_count": processed, "error": error},
+            json_body={
+                "finished_at": finished_at,
+                "status": status,
+                "processed_count": processed,
+                "error": error,
+                "notes": notes,
+            },
             method="patch",
         )
 
