@@ -84,7 +84,7 @@ def main():
             for fx in fixtures:
                 try:
                     match_row = build_match_row(fx)
-                except Exception as exc:  # noqa: BLE001
+                except (KeyError, TypeError, ValueError) as exc:
                     failure_notes.append(f"שגיאת המרה במשחק {fx.get('home_team','?')}-{fx.get('away_team','?')}: {exc}")
                     status = "partial_fail"
                     continue
