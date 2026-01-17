@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -20,10 +21,14 @@ def main() -> int:
     sys.stderr.write("Missing SUPABASE_URL or SUPABASE_ANON_KEY; not writing web/config.js\n")
     return 1
 
-  # Basic sanitation to avoid embedding unsafe characters.
-  for value_name, value in [("SUPABASE_URL", supabase_url), ("SUPABASE_ANON_KEY", supabase_anon_key)]:
-    if any(ch in value for ch in ["<", ">", "`"]):
-      sys.stderr.write(f"{value_name} contains unsafe characters; aborting config generation\n")
+  safe_pattern = re.compile(r"^[A-Za-z0-9._:/-]+$")
+  checks = [
+      ("SUPABASE_URL", supabase_url, lambda v: v.startswith("http")),
+      ("SUPABASE_ANON_KEY", supabase_anon_key, lambda v: v.startswith("sb_")),
+  ]
+  for value_name, value, extra_check in checks:
+    if not safe_pattern.fullmatch(value) or not extra_check(value):
+      sys.stderr.write(f"{value_name} failed validation; aborting config generation\n")
       return 1
 
   config_path = Path(__file__).resolve().parent.parent / "web" / "config.js"

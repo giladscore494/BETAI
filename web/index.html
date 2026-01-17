@@ -31,7 +31,7 @@
   <h2>סטטיסטיקה שבועית</h2>
   <div id="stats">טוען...</div>
 
-  <script src="/config.js" onerror="document.getElementById('error-banner').innerText='חסרים SUPABASE_URL / SUPABASE_ANON_KEY ב-Cloudflare Pages Variables';document.getElementById('error-banner').style.display='block';"></script>
+  <script src="/config.js" onerror="window.__CONFIG_LOAD_ERROR=true;"></script>
   <script>
     const errorBanner = document.getElementById("error-banner");
     function showError(message) {
@@ -42,7 +42,7 @@
     const SUPABASE_URL = window.SUPABASE_URL;
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
 
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (window.__CONFIG_LOAD_ERROR || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
       showError("חסרים SUPABASE_URL / SUPABASE_ANON_KEY ב-Cloudflare Pages Variables");
       document.getElementById("stats").innerText = "הנתונים לא נטענו בגלל חסרון ההגדרות.";
     } else {
@@ -64,7 +64,12 @@
       function formatPrediction(pred) {
         if (!pred) return "—";
         const winner = pred.predicted_winner || "";
-        const pct = Math.round((winner === "HOME" ? pred.prob_home : winner === "AWAY" ? pred.prob_away : pred.prob_draw) * 100);
+        const probMap = {
+          HOME: pred.prob_home,
+          AWAY: pred.prob_away,
+          DRAW: pred.prob_draw
+        };
+        const pct = Math.round((probMap[winner] ?? pred.prob_draw) * 100);
         return `${winner} (${pct}%)`;
       }
 
