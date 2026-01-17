@@ -14,8 +14,8 @@
    - קבצי cron קיימים: `weekly_sync.yml`, `pre_match.yml`, `post_match.yml`.
    - ניתן להפעיל ידנית עם workflow_dispatch מתוך לשונית Actions (בחר את ה-workflow ולחץ Run workflow).
 4. **אתר**
-   - ערוך את `web/index.html` והחלף את `<SUPABASE_URL>` ו-`<SUPABASE_ANON_KEY>` בערכים שלך.
-   - פרוס כ-Static Site (GitHub Pages או Supabase Storage).
+   - התצורה מוטענת מ-`web/config.js` (נוצר בזמן Build מ-ENV, לא קיים בגיט).
+   - פרוס כ-Static Site (Cloudflare Pages מומלץ).
 
 ## קבצי הריצה
 - `jobs/weekly_sync.py` – מביא משחקים לשבוע הקרוב ומבצע upsert ל-`matches`.
@@ -36,18 +36,22 @@ python jobs/pre_match.py
 python jobs/post_match.py
 ```
 
-## הגדרת משתני Supabase ל-UI
-לפני טעינת `web/index.html` בדפדפן, הזריקו:
-```html
-<script>
-  window.SUPABASE_URL = "https://your-project.supabase.co";
-  window.SUPABASE_ANON_KEY = "public-anon-key";
-</script>
-```
+## פריסת Cloudflare Pages (ללא סודות בקוד)
+1. הגדרות דף:
+   - Root directory: `/`
+   - Build output directory: `web`
+   - Build command: `python scripts/generate_config.py` (יוצר `web/config.js` רק אם קיימים ENV)
+2. Environment Variables (Pages):
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY` (מפתח sb_publishable_ לקריאה בלבד)
+3. Supabase:
+   - הפעל RLS וודא מדיניות SELECT ל-anon על הטבלאות `matches`, `predictions`, `results`.
+4. בדיקה:
+   - בקר ב-`https://betai.pages.dev` ואשר שהטבלאות נטענות. אם מופיע באנר 401/403, עדכן את מדיניות ה-SELECT.
 
 ## הערות אבטחה וקרקוע
 - מפתח השירות של Supabase (SERVICE ROLE) משמש רק בסקריפטים/CI, לא בדפדפן.
-- אתר ה-UI משתמש במפתח `SUPABASE_ANON_KEY` לקריאה בלבד.
+- אתר ה-UI משתמש במפתח `SUPABASE_ANON_KEY` לקריאה בלבד (publishable). מפתח Gemini נשאר ב-GitHub Actions בלבד.
 - לוגי הריצה מציגים רק בוליאני האם סודות הוגדרו. מקורות/grounding נאכפים אוטומטית; לבדיקה ניתן לעיין ב-runs.notes או בלוגים ולוודא שאין הודעות חסר קרקוע.
 
 ## בדיקות
