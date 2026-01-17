@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>מעקב תחזיות כדורגל</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1, h2 { color: #222; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #222; color: #fff; }
+    .badge-ok { color: #0a0; font-weight: bold; }
+    .badge-bad { color: #a00; font-weight: bold; }
+    .sources a { margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <h1>משחקים השבוע</h1>
+  <table id="matches">
+    <thead>
+      <tr>
+        <th>ליגה</th><th>תאריך</th><th>שעה (ישראל)</th><th>בית</th><th>חוץ</th>
+        <th>סטטוס</th><th>תחזית</th><th>תוצאה</th><th>נכון?</th><th>זמן תגובה (ms)</th><th>מקורות</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>סטטיסטיקה שבועית</h2>
+  <div id="stats">טוען...</div>
+
+  <script>
+    const SUPABASE_URL = window.SUPABASE_URL;
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      document.getElementById("stats").innerText = "יש להגדיר SUPABASE_URL ו-SUPABASE_ANON_KEY כמשתני חלון לפני טעינת הדף.";
+      throw new Error("Supabase credentials missing");
+    }
+
+    async function fetchSupabase(path, params = "") {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}${params}`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function formatPrediction(pred) {
+      if (!pred) return "—";
+      const winner = pred.predicted_winner || "";
+      const pct = Math.round((winner === "HOME" ? pred.prob_home : winner === "AWAY" ? pred.prob_away : pred.prob_draw) * 100);
+      return `${winner} (${pct}%)`;
+    }
+
+    async function loadMatches() {
+      const today = new Date();
+      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const params = `?select=*,predictions(*),results(*)&kickoff_utc=gte.${today.toISOString()}&kickoff_utc=lte.${nextWeek.toISOString()}&order=kickoff_utc.asc`;
+      const rows = await fetchSupabase("matches", params);
+      const tbody = document.querySelector("#matches tbody");
+      tbody.innerHTML = "";
+      rows.forEach(row => {
+        const pred = row.predictions?.[0];
+        const res = row.results?.[0];
+        const tr = document.createElement("tr");
+        const date = new Date(row.kickoff_israel);
+        const predLatency = pred?.duration_ms || "";
+        const correct = res ? (res.correct ? '<span class="badge-ok">כן</span>' : '<span class="badge-bad">לא</span>') : "—";
+        const sources = pred?.sources || res?.sources;
+        const links = [];
+        if (sources) {
+          Object.values(sources).forEach(arr => {
+            (arr || []).forEach(url => {
+              links.push(`<a href="${url}" target="_blank">קישור</a>`);
+            });
+          });
+        }
+        tr.innerHTML = `
+          <td>${row.league}</td>
+          <td>${date.toLocaleDateString("he-IL")}</td>
+          <td>${date.toLocaleTimeString("he-IL", {hour: "2-digit", minute: "2-digit"})}</td>
+          <td>${row.home_team}</td>
+          <td>${row.away_team}</td>
+          <td>${row.status}</td>
+          <td>${formatPrediction(pred)}</td>
+          <td>${res ? res.final_home_goals + " - " + res.final_away_goals : "—"}</td>
+          <td>${correct}</td>
+          <td>${predLatency}</td>
+          <td class="sources">${links.join(" ")}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadStats() {
+      const res = await fetchSupabase("results", "?select=match_id,result_text,correct,verified_at&order=verified_at.desc&limit=50");
+      if (!res.length) {
+        document.getElementById("stats").innerText = "אין נתונים.";
+        return;
+      }
+      let correct = 0;
+      res.forEach(r => { if (r.correct) correct += 1; });
+      const accuracy = (correct / res.length * 100).toFixed(1);
+      document.getElementById("stats").innerText = `דיוק נוכחי: ${accuracy}% (${correct}/${res.length})`;
+    }
+
+    loadMatches().catch(err => console.error(err));
+    loadStats().catch(err => console.error(err));
+  </script>
+</body>
+</html>

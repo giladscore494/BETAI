@@ -1,0 +1,26 @@
+name: Weekly fixtures sync
+
+on:
+  schedule:
+    - cron: "0 22 * * 5"  # Friday 22:00 UTC ~ midnight IL
+  workflow_dispatch: {}
+
+jobs:
+  weekly-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run weekly sync
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+        run: python jobs/weekly_sync.py
