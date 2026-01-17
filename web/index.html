@@ -31,7 +31,7 @@
   <h2>סטטיסטיקה שבועית</h2>
   <div id="stats">טוען...</div>
 
-  <script src="/config.js"></script>
+  <script src="/config.js" onerror="document.getElementById('error-banner').innerText='חסרים SUPABASE_URL / SUPABASE_ANON_KEY ב-Cloudflare Pages Variables';document.getElementById('error-banner').style.display='block';"></script>
   <script>
     const errorBanner = document.getElementById("error-banner");
     function showError(message) {

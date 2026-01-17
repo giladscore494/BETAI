@@ -20,6 +20,12 @@ def main() -> int:
     sys.stderr.write("Missing SUPABASE_URL or SUPABASE_ANON_KEY; not writing web/config.js\n")
     return 1
 
+  # Basic sanitation to avoid embedding unsafe characters.
+  for value_name, value in [("SUPABASE_URL", supabase_url), ("SUPABASE_ANON_KEY", supabase_anon_key)]:
+    if any(ch in value for ch in ["<", ">", "`"]):
+      sys.stderr.write(f"{value_name} contains unsafe characters; aborting config generation\n")
+      return 1
+
   config_path = Path(__file__).resolve().parent.parent / "web" / "config.js"
   config_path.write_text(
       f"window.SUPABASE_URL = {json.dumps(supabase_url)};\n"
