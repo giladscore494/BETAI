@@ -11,6 +11,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def main() -> int:
@@ -22,14 +23,22 @@ def main() -> int:
     return 1
 
   safe_pattern = re.compile(r"^[A-Za-z0-9._:/-]+$")
-  checks = [
-      ("SUPABASE_URL", supabase_url, lambda v: v.startswith("http") and ".." not in v),
-      ("SUPABASE_ANON_KEY", supabase_anon_key, lambda v: v.startswith("sb_publishable_") or v.startswith("ey")),
-  ]
-  for value_name, value, extra_check in checks:
-    if not safe_pattern.fullmatch(value) or not extra_check(value):
-      sys.stderr.write(f"{value_name} failed validation; aborting config generation\n")
-      return 1
+
+  def valid_url(value: str) -> bool:
+    if ".." in value or not safe_pattern.fullmatch(value):
+      return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+  def valid_anon_key(value: str) -> bool:
+    return value.startswith("sb_publishable_") and safe_pattern.fullmatch(value)
+
+  if not valid_url(supabase_url):
+    sys.stderr.write("SUPABASE_URL failed validation; aborting config generation\n")
+    return 1
+  if not valid_anon_key(supabase_anon_key):
+    sys.stderr.write("SUPABASE_ANON_KEY failed validation; aborting config generation\n")
+    return 1
 
   config_path = Path(__file__).resolve().parent.parent / "web" / "config.js"
   config_path.write_text(
