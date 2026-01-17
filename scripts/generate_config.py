@@ -22,21 +22,23 @@ def main() -> int:
     sys.stderr.write("Missing SUPABASE_URL or SUPABASE_ANON_KEY; not writing web/config.js\n")
     return 1
 
-  safe_pattern = re.compile(r"^[A-Za-z0-9._:/-]+$")
+  key_pattern = re.compile(r"^[A-Za-z0-9._-]+$")
 
   def valid_url(value: str) -> bool:
-    if ".." in value or not safe_pattern.fullmatch(value):
-      return False
     parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    return (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and parsed.path in ("", "/")
+    )
 
-  def valid_anon_key(value: str) -> bool:
-    return (value.startswith("sb_publishable_") or value.startswith("ey")) and safe_pattern.fullmatch(value)
+  def valid_frontend_key(value: str) -> bool:
+    return (value.startswith("sb_publishable_") or value.startswith("ey")) and key_pattern.fullmatch(value)
 
   if not valid_url(supabase_url):
     sys.stderr.write("SUPABASE_URL failed validation; aborting config generation\n")
     return 1
-  if not valid_anon_key(supabase_anon_key):
+  if not valid_frontend_key(supabase_anon_key):
     sys.stderr.write("SUPABASE_ANON_KEY failed validation; aborting config generation\n")
     return 1
 
