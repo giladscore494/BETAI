@@ -36,6 +36,10 @@ python jobs/pre_match.py
 python jobs/post_match.py
 ```
 
+## Troubleshooting 400 (Supabase runs)
+- ב-Logs של GitHub Actions חפש שורה בסגנון `Supabase error 400: ...` כדי לראות את גוף השגיאה מה-POST ל-`/rest/v1/runs`.
+- ודא שסכימת `public.runs` תואמת לשדות שנשלחים (`job_name`, `status`, `started_at`, אופציונלי `notes`) והריץ מחדש את `db/schema.sql` אם צריך.
+
 ## פריסת Cloudflare Pages (ללא סודות בקוד)
 1. הגדרות דף:
    - Root directory: `/`
