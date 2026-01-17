@@ -2,7 +2,10 @@ name: Weekly fixtures sync
 
 on:
   schedule:
-    - cron: "0 22 * * 5"  # Friday 22:00 UTC ~ midnight IL
+    # Run twice per week so you don't wait a full week if something breaks.
+    # Fri 22:00 UTC (~00:00 Israel) + Tue 22:00 UTC as a safety net.
+    - cron: "0 22 * * 5"
+    - cron: "0 22 * * 2"
   workflow_dispatch: {}
 
 jobs:
@@ -13,12 +16,17 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+
       - name: Install dependencies
-        run: pip install requests
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
       - name: Debug secrets presence (boolean only)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -30,6 +38,7 @@ jobs:
           [ -n "${SUPABASE_URL:-}" ] && echo "SUPABASE_URL=true" || echo "SUPABASE_URL=false"
           [ -n "${SUPABASE_SERVICE_ROLE:-}" ] && echo "SUPABASE_SERVICE_ROLE=true" || echo "SUPABASE_SERVICE_ROLE=false"
           [ -n "${APP_TZ:-}" ] && echo "APP_TZ=true" || echo "APP_TZ=false"
+
       - name: Run weekly sync
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
