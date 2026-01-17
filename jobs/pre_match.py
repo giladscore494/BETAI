@@ -36,10 +36,8 @@ def main():
     gemini = GeminiClient(os.environ["GEMINI_API_KEY"])
     supabase = SupabaseClient()
     run_id = supabase.log_run("pre_match")
-    processed = 0
     status = "ok"
     failure_notes = []
-    error_msg = None
     try:
         now = datetime.now(timezone.utc)
         start = now + timedelta(minutes=50)
@@ -85,17 +83,16 @@ def main():
                 baseline = compute_baseline(match)
                 baseline["match_id"] = match["id"]
                 supabase.upsert_baseline(baseline)
-                processed += 1
             except (GroundingError, requests.RequestException, ValueError) as exc:
                 failure_notes.append(f"משחק {match.get('home_team')} - {match.get('away_team')}: שגיאה ({exc})")
                 status = "partial_fail"
                 continue
     except Exception as exc:  # noqa: BLE001
         status = "error"
-        error_msg = str(exc)
+        failure_notes.append(f"שגיאת מערכת: {exc}")
     finally:
         notes_text = "; ".join(failure_notes) if failure_notes else None
-        supabase.finish_run(run_id, status, processed, error=error_msg, notes=notes_text)
+        supabase.finish_run(run_id, status, notes_text)
 
 
 if __name__ == "__main__":

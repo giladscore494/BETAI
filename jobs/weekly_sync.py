@@ -66,11 +66,9 @@ def main():
     gemini = GeminiClient(gemini_key)
     supabase = SupabaseClient()
     run_id = supabase.log_run("weekly_sync")
-    processed = 0
     status = "ok"
     failure_notes = []
     duration_notes = []
-    error_msg = None
     try:
         all_matches = []
         for code, name in LEAGUES.items():
@@ -97,14 +95,13 @@ def main():
                 all_matches.append(match_row)
         if all_matches:
             supabase.upsert_matches(all_matches)
-            processed = len(all_matches)
     except Exception as exc:  # noqa: BLE001
         status = "error"
-        error_msg = str(exc)
+        failure_notes.append(f"שגיאת מערכת: {exc}")
     finally:
         all_notes = failure_notes + duration_notes
         notes_text = "; ".join(all_notes) if all_notes else None
-        supabase.finish_run(run_id, status, processed, error=error_msg, notes=notes_text)
+        supabase.finish_run(run_id, status, notes_text)
 
 
 if __name__ == "__main__":

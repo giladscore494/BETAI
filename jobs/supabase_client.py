@@ -30,31 +30,28 @@ class SupabaseClient:
         if extra_headers:
             headers.update(extra_headers)
         resp = self.session.request(method, url, headers=headers, params=params, json=json_body, timeout=60)
-        resp.raise_for_status()
+        if not resp.ok:
+            print(f"Supabase error {resp.status_code}: {resp.text}")
+            resp.raise_for_status()
         if resp.text:
             return resp.json()
         return None
 
-    def log_run(self, job_type: str) -> str:
+    def log_run(self, job_name: str) -> str:
         start = time.strftime("%Y-%m-%dT%H:%M:%SZ")
-        data = {"job_type": job_type, "started_at": start, "status": "running"}
+        data = {"job_name": job_name, "started_at": start, "status": "running"}
         res = self._rest("runs", json_body=data)
         return res[0]["id"]
 
-    def finish_run(
-        self, run_id: str, status: str, processed: int = 0, error: Optional[str] = None, notes: Optional[str] = None
-    ):
+    def finish_run(self, run_id: str, status: str, notes: Optional[str] = None):
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        payload = {"finished_at": finished_at, "status": status}
+        if notes is not None:
+            payload["notes"] = notes
         self._rest(
             "runs",
             params={"id": f"eq.{run_id}"},
-            json_body={
-                "finished_at": finished_at,
-                "status": status,
-                "processed_count": processed,
-                "error": error,
-                "notes": notes,
-            },
+            json_body=payload,
             method="patch",
         )
 
