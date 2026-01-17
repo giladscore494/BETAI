@@ -23,8 +23,8 @@ def main() -> int:
 
   safe_pattern = re.compile(r"^[A-Za-z0-9._:/-]+$")
   checks = [
-      ("SUPABASE_URL", supabase_url, lambda v: v.startswith("http")),
-      ("SUPABASE_ANON_KEY", supabase_anon_key, lambda v: v.startswith("sb_") or v.startswith("ey")),
+      ("SUPABASE_URL", supabase_url, lambda v: v.startswith("http") and ".." not in v),
+      ("SUPABASE_ANON_KEY", supabase_anon_key, lambda v: v.startswith("sb_publishable_") or v.startswith("ey")),
   ]
   for value_name, value, extra_check in checks:
     if not safe_pattern.fullmatch(value) or not extra_check(value):
