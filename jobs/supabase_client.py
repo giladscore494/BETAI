@@ -43,9 +43,7 @@ class SupabaseClient:
         res = self._rest("runs", json_body=data)
         return res[0]["id"]
 
-    def finish_run(
-        self, run_id: str, status: str, processed: int = 0, error: Optional[str] = None, notes: Optional[str] = None
-    ):
+    def finish_run(self, run_id: str, status: str, notes: Optional[str] = None):
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ")
         payload = {"finished_at": finished_at, "status": status}
         if notes is not None:
