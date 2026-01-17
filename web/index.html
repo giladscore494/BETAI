@@ -68,7 +68,7 @@
         if (winner === "HOME") probValue = pred.prob_home ?? 0;
         else if (winner === "AWAY") probValue = pred.prob_away ?? 0;
         else if (winner === "DRAW") probValue = pred.prob_draw ?? 0;
-        else probValue = pred.prob_draw ?? 0;
+        else probValue = 0;
         const pct = Math.round(probValue * 100);
         return `${winner} (${pct}%)`;
       }
