@@ -69,8 +69,6 @@ create table if not exists runs (
   started_at timestamptz default now(),
   finished_at timestamptz,
   status text,
-  processed_count integer default 0,
-  error text,
   notes text
 );
 
