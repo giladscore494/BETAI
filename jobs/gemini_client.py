@@ -245,7 +245,7 @@ class GeminiClient:
             if validator:
                 try:
                     validator(parsed)
-                except Exception as exc:  # noqa: BLE001
+                except (ValueError, KeyError, TypeError) as exc:
                     last_error = exc
                     prompt_base = user_prompt + JSON_FIX_NOTE
                     continue
